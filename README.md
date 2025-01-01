@@ -37,7 +37,7 @@ A modern web browser with JavaScript enabled.
 ### Installation
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-username/signature-generator.git
+   git clone https://github.com/AdityaPatil100/signature-generator.git
 
 ![Screenshot 2024-12-26 151602](https://github.com/user-attachments/assets/d0ae8a9f-4ecf-4b14-8672-8d4adcdbeb63)
 ![Screenshot 2024-12-26 160155](https://github.com/user-attachments/assets/9bd2bb2c-d9b1-477d-b2f4-33146ff393ac)
