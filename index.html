@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signature Generator</title>
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        /* Your existing styles */
+        body {
+            font-family: 'Roboto', sans-serif;
+            background: #f4f7fb;
+            color: #333;
+            text-align: center;
+            padding: 40px 0;
+        }
+        .container {
+            max-width: 900px;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #4f7e7e;
+            font-size: 36px;
+            font-weight: 600;
+        }
+        canvas {
+            border: 2px solid #4f7e7e;
+            display: block;
+            margin: 20px auto;
+            border-radius: 10px;
+            cursor: crosshair;
+        }
+        .toolbox, .generate-btn-container {
+            margin-top: 20px;
+        }
+        .toolbox label, .toolbox button {
+            margin-right: 15px;
+        }
+        .toolbox input, .toolbox button {
+            margin-top: 5px;
+            border-radius: 5px;
+        }
+        .toolbox input[type="color"] {
+            padding: 0;
+            width: 40px;
+        }
+        .preview-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            margin-top: 40px;
+        }
+        .preview-card {
+            background-color: #fafafa;
+            border-radius: 10px;
+            padding: 15px;
+            width: 200px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+        .preview-card:hover {
+            transform: translateY(-5px);
+        }
+        .preview-card button {
+            margin-top: 10px;
+            padding: 8px 15px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .generate-btn-container {
+            margin-top: 30px;
+        }
+        .generate-btn-container button {
+            background: #4f7e7e;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            font-size: 18px;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+        }
+        .generate-btn-container button:hover {
+            background: #3b6363;
+        }
+        .preview-container .card-title {
+            font-size: 1.5em;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        /* Modal styles */
+        .modal-content {
+            padding: 20px;
+        }
+
+        .toggle-buttons {
+            margin-bottom: 20px;
+        }
+
+        .toggle-buttons button {
+            margin-right: 10px;
+            padding: 8px 15px;
+            border-radius: 25px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Signature Generator</h1>
+        <p>Select your preferred mode:</p>
+        <div class="toggle-buttons">
+            <button id="drawModeBtn" class="btn btn-outline-primary" onclick="toggleMode('draw')">Draw</button>
+            <button id="typeModeBtn" class="btn btn-outline-secondary" onclick="toggleMode('type')">Type</button>
+        </div>
+
+        <!-- Draw Mode -->
+        <div id="drawMode" style="display: none;">
+            <canvas id="signatureCanvas" width="500" height="200"></canvas>
+        </div>
+
+        <!-- Type Mode -->
+        <div id="typeMode" style="display: none;">
+            <input type="text" id="signatureInput" class="form-control" placeholder="Enter your name" />
+            <div class="generate-btn-container">
+                <button onclick="generateAISignature()">Generate Signature</button>
+            </div>
+        </div>
+
+        <div class="toolbox">
+            <label for="brushColor">Brush Color:</label>
+            <input type="color" id="brushColor" value="#000000">
+            <label for="brushSize">Brush Size:</label>
+            <input type="range" id="brushSize" min="1" max="20" value="2">
+            <button class="btn btn-outline-primary" onclick="clearCanvas()">Clear</button>
+            <button class="btn btn-outline-success" onclick="downloadCanvasPNG()">Download PNG</button>
+            <button class="btn btn-outline-danger" onclick="downloadCanvasSVG()">Download SVG</button>
+        </div>
+
+        <div id="previewContainer" class="preview-container"></div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.min.js"></script>
+
+    <script>
+        const canvas = document.getElementById('signatureCanvas');
+        const ctx = canvas.getContext('2d');
+        const brushColorPicker = document.getElementById('brushColor');
+        const brushSizeSlider = document.getElementById('brushSize');
+        const previewContainer = document.getElementById('previewContainer');
+        const signatureInput = document.getElementById('signatureInput');
+
+        let isDrawing = false;
+        let brushColor = brushColorPicker.value;
+        let brushSize = brushSizeSlider.value;
+
+        // Font list for AI-generated signatures
+        const fonts = [
+    'Pacifico', 'Dancing Script', 'Cookie', 'Sacramento',
+    'Kaushan Script', 'Great Vibes', 'Handlee', 'Parisienne',
+    'Shadows Into Light', 'Lobster', 'Satisfy', 'Amatic SC',
+    'Caveat', 'Patrick Hand', 'Homemade Apple', 'Alex Brush',
+    'Reenie Beanie', 'Sue Ellen Francisco', 'Permanent Marker','Gloria Hallelujah'
+];
+
+        // Load Google Fonts dynamically
+        const loadFonts = () => {
+            const head = document.head;
+            fonts.forEach(font => {
+                const link = document.createElement('link');
+                link.href = `https://fonts.googleapis.com/css2?family=${font.replace(' ', '+')}&display=swap`;
+                link.rel = 'stylesheet';
+                head.appendChild(link);
+            });
+        };
+        loadFonts();
+
+        // Initial canvas settings
+        ctx.strokeStyle = brushColor;
+        ctx.lineWidth = brushSize;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+
+        // Canvas drawing event listeners
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseout', stopDrawing);
+
+        brushColorPicker.addEventListener('change', () => {
+            brushColor = brushColorPicker.value;
+            ctx.strokeStyle = brushColor;
+        });
+
+        brushSizeSlider.addEventListener('input', () => {
+            brushSize = brushSizeSlider.value;
+            ctx.lineWidth = brushSize;
+        });
+
+        function startDrawing(event) {
+            isDrawing = true;
+            ctx.beginPath();
+            ctx.moveTo(event.offsetX, event.offsetY);
+        }
+
+        function draw(event) {
+            if (!isDrawing) return;
+            ctx.lineTo(event.offsetX, event.offsetY);
+            ctx.stroke();
+        }
+
+        function stopDrawing() {
+            isDrawing = false;
+            ctx.closePath();
+        }
+
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function toggleMode(mode) {
+            if (mode === 'draw') {
+                document.getElementById('drawMode').style.display = 'block';
+                document.getElementById('typeMode').style.display = 'none';
+                document.getElementById('previewContainer').style.display = 'none';
+            } else {
+                document.getElementById('drawMode').style.display = 'none';
+                document.getElementById('typeMode').style.display = 'block';
+                document.getElementById('previewContainer').style.display = 'flex';
+
+            }
+        }
+
+        function generateAISignature() {
+            const userInput = signatureInput.value.trim();
+            if (userInput) {
+                previewContainer.innerHTML = ''; // Clear previous previews
+                fonts.forEach(font => {
+                    const card = document.createElement('div');
+                    card.className = 'preview-card';
+                    card.style.fontFamily = font; // Apply font to the card container
+
+                    const cardTitle = document.createElement('div');
+                    cardTitle.className = 'card-title';
+                    cardTitle.style.fontFamily = font; // Apply font to the signature text
+                    cardTitle.textContent = userInput;
+
+                    // Add download buttons with Arial font for button text
+                    const downloadPNGButton = document.createElement('button');
+                    downloadPNGButton.classList.add('btn', 'btn-outline-primary');
+                    downloadPNGButton.textContent = 'Download PNG';
+                    downloadPNGButton.style.fontFamily = 'Arial'; // Set button font-family to Arial
+                    downloadPNGButton.onclick = () => downloadSignature(userInput, font, 'png'); // Handle PNG download
+
+                    // Append the buttons and the title to the card
+                    card.appendChild(cardTitle);
+                    card.appendChild(downloadPNGButton);
+
+                    previewContainer.appendChild(card);
+                });
+            }
+        }
+
+        function downloadSignature(text, font, format) {
+            if (format === 'png') {
+                downloadPNG(text, font);
+            } else if (format === 'svg') {
+                downloadSVG(text, font);
+            }
+        }
+
+        function downloadPNG(text, font) {
+            const canvasTemp = document.createElement('canvas');
+            const ctxTemp = canvasTemp.getContext('2d');
+            canvasTemp.width = 300;
+            canvasTemp.height = 100;
+            ctxTemp.font = `40px ${font}`;
+            ctxTemp.fillStyle = '#000';
+            ctxTemp.textAlign = 'center';
+            ctxTemp.textBaseline = 'middle';
+            ctxTemp.fillText(text, canvasTemp.width / 2, canvasTemp.height / 2);
+
+            const link = document.createElement('a');
+            link.href = canvasTemp.toDataURL('image/png');
+            link.download = `${text}_signature_${font}.png`;
+            link.click();
+        }
+
+        function downloadCanvasPNG() {
+            const link = document.createElement('a');
+            link.href = canvas.toDataURL('image/png');
+            link.download = 'signature.png';
+            link.click();
+        }
+
+        function downloadCanvasSVG() {
+            const svgTemplate = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="${canvas.width}" height="${canvas.height}">
+                    <path d="${getCanvasSVGPath()}" fill="none" stroke="black" stroke-width="2" />
+                </svg>
+            `;
+            const link = document.createElement('a');
+            const blob = new Blob([svgTemplate], { type: 'image/svg+xml' });
+            link.href = URL.createObjectURL(blob);
+            link.download = 'signature.svg';
+            link.click();
+        }
+
+        function getCanvasSVGPath() {
+    const pathData = [];
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    let isDrawing = false;
+    let lastX, lastY;
+
+    for (let y = 0; y < canvas.height; y++) {
+        for (let x = 0; x < canvas.width; x++) {
+            const index = (y * canvas.width + x) * 4;
+            const alpha = imageData.data[index + 3];
+            if (alpha > 0) {  // If there's any visible drawing (alpha > 0)
+                if (!isDrawing) {
+                    isDrawing = true;
+                    lastX = x;
+                    lastY = y;
+                    pathData.push(`M${x},${y}`); // Move to the start position
+                } else {
+                    pathData.push(`L${x},${y}`); // Draw a line to the new position
+                }
+            } else {
+                if (isDrawing) {
+                    isDrawing = false; // Stop drawing when alpha is 0 (transparent)
+                }
+            }
+        }
+    }
+
+    return pathData.join(' '); // Join all commands into one path string
+}
+
+
+        // Initialize with draw mode
+        toggleMode('draw');
+    </script>
+
+</body>
+</html>
